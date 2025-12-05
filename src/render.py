@@ -187,15 +187,31 @@ class BlessingRenderer:
         """
         绘制背景装饰层
         正确逻辑：
-        - background(num).png 本身是带白色背景的装饰图案
-        - 直接叠加到画布上即可，不需要额外遮罩处理
+        - background(num).png 是装饰图案（白色螺旋纹等）
+        - 只保留图案部分（非纯白的像素），半透明叠加到底色上
+        - 纯白背景部分应该透明，让底层颜色显示出来
         """
         try:
             # 加载装饰图片（background0-3.png）
             decoration_path = self.assets_dir / "image" / decoration_filename
             decoration_img = Image.open(decoration_path).convert('RGBA')
             
-            # 直接叠加到画布上（使用自身的 alpha 通道）
+            # 将装饰图案中的白色背景变透明，只保留图案
+            # 遍历每个像素，如果接近纯白(RGB > 250)，则设为透明
+            pixels = decoration_img.load()
+            width, height = decoration_img.size
+            for y in range(height):
+                for x in range(width):
+                    r, g, b, a = pixels[x, y]
+                    # 如果是接近纯白的像素（背景），设为完全透明
+                    if r > 250 and g > 250 and b > 250:
+                        pixels[x, y] = (r, g, b, 0)
+                    else:
+                        # 保留装饰图案的原始亮度和透明度
+                        # 让白色/浅色图案保持明亮，不要变暗
+                        pixels[x, y] = (r, g, b, a)
+            
+            # 叠加到画布上
             canvas.paste(decoration_img, (0, 0), decoration_img)
             
         except Exception as e:
@@ -248,8 +264,8 @@ class BlessingRenderer:
         
         # 文字颜色：白色
         text_color = (255, 255, 255, 255)
-        # 描边颜色：半透明黑色
-        outline_color = (0, 0, 0, 120)
+        # 描边颜色：更淡的半透明黑色（降低不透明度）
+        outline_color = (0, 0, 0, 80)  # 从120降到80，让描边更细更淡
         
         # 准备文字内容（按顺序）
         texts = [
