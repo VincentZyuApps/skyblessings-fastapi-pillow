@@ -1,0 +1,10 @@
+[server]
+host = "0.0.0.0"
+port = 51205
+log_level = "debug"  # "info" 或 "debug"
+
+[image]
+width = 1240
+height = 620
+font_size = 36
+assets_dir = "../assets"  # 资源文件夹路径（相对于 src 目录）
