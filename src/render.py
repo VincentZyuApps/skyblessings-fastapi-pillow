@@ -183,34 +183,20 @@ class BlessingRenderer:
         output.seek(0)
         return output.getvalue()
     
-    def _draw_background_decoration(self, canvas: Image.Image, mask_filename: str):
+    def _draw_background_decoration(self, canvas: Image.Image, decoration_filename: str):
         """
-        绘制背景装饰层（增强版）
-        原版逻辑：
-        - background5.png 是固定的底层纹理（白色背景 + 装饰图案）
-        - background0-3.png 是随机选择的遮罩，控制 background5.png 的显示区域
-        增强：提高装饰图案的可见度（通过增强 alpha 通道）
+        绘制背景装饰层
+        正确逻辑：
+        - background(num).png 本身是带白色背景的装饰图案
+        - 直接叠加到画布上即可，不需要额外遮罩处理
         """
         try:
-            # 加载固定的底层纹理
-            base_texture_path = self.assets_dir / "image" / "background5.png"
-            base_texture = Image.open(base_texture_path).convert('RGBA')
+            # 加载装饰图片（background0-3.png）
+            decoration_path = self.assets_dir / "image" / decoration_filename
+            decoration_img = Image.open(decoration_path).convert('RGBA')
             
-            # 加载随机遮罩
-            mask_path = self.assets_dir / "image" / mask_filename
-            mask_img = Image.open(mask_path).convert('RGBA')
-            
-            # 降低遮罩的 alpha 通道，让 background5.png 的装饰图案更明显
-            # 将 alpha 值除以 1.5，让底层纹理更容易透过来
-            mask_array = mask_img.split()
-            if len(mask_array) == 4:
-                r, g, b, a = mask_array
-                # 降低 alpha 通道（让遮罩更透明，底层纹理更明显）
-                reduced_alpha = a.point(lambda x: int(x / 1.5))
-                mask_img = Image.merge('RGBA', (r, g, b, reduced_alpha))
-            
-            # 使用增强后的遮罩将底层纹理粘贴到画布上
-            canvas.paste(base_texture, (0, 0), mask_img)
+            # 直接叠加到画布上（使用自身的 alpha 通道）
+            canvas.paste(decoration_img, (0, 0), decoration_img)
             
         except Exception as e:
             print(f"警告：绘制背景装饰失败 {e}")
@@ -227,7 +213,9 @@ class BlessingRenderer:
             mask_img = Image.open(mask_path).convert('RGBA')
             
             # 创建纯色图层
-            rgba = self._hex_to_rgba(color_hex, alpha=204)  # 0.8 * 255 = 204
+            # rgba = self._hex_to_rgba(color_hex, alpha=204)  # 0.8 * 255 = 204
+            # 创建纯色图层（完全不透明）
+            rgba = self._hex_to_rgba(color_hex, alpha=255)  # 完全不透明
             color_layer = Image.new('RGBA', (self.width, self.height), rgba)
             
             # 使用遮罩的 alpha 通道作为透明度控制
