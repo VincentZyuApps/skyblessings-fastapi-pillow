@@ -14,6 +14,10 @@
 | [![Uvicorn](https://img.shields.io/badge/Uvicorn-0.38.0-499848?style=flat-square&logo=gunicorn&logoColor=white)](https://www.uvicorn.org/) | 0.38.0 | ASGI 服务器 |
 | [![TOML](https://img.shields.io/badge/toml-0.10.2-9C4121?style=flat-square&logo=toml&logoColor=white)](https://github.com/uiri/toml) | 0.10.2 | 配置文件解析 |
 
+## 效果预览
+
+![blessing-preview](doc/blessing-preview.png)
+
 ## 快速开始
 
 ### 1. 安装依赖
