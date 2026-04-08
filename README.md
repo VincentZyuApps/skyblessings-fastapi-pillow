@@ -16,7 +16,12 @@
 
 ## 效果预览
 
+### 图片效果
+
 ![blessing-preview](doc/blessing-preview.png)
+
+### JSON效果
+![json-preview](doc/json-preview.png)
 
 ## 快速开始
 
