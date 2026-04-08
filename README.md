@@ -130,20 +130,20 @@ skyblessings-fastapi-pillow/
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `type` | string | `image` | 返回格式，见下方说明 |
+| `type` | string | `image` | 返回格式（可选），见下方说明 |
 | `a` | string | - | 种子参数 a（可选） |
 | `b` | string | - | 种子参数 b（可选） |
 | `c` | string | - | 种子参数 c（可选） |
 | `d` | string | - | 种子参数 d（可选） |
-| `e` | string | - | 种子参数 e（可选） |
+| `e` | string | - | 种子参数 e（可选），都见下方说明 |
 
-**`?type=` 说明**:
+**?type= 说明**:
 
 - `image`（默认）：直接返回 PNG 图片（`image/png`）
 - `json`：返回 JSON 数据，包含签文信息 + `image_base64` 字段（base64 编码的 PNG）
 - `json_without_image`：返回 JSON 数据，不含图片
 
-**`?a=` ~ `?e=` 种子参数说明**:
+**?a= ~ ?e= 种子参数说明**:
 
 这 5 个参数用于固定抽签结果。传入任意一个或多个参数后，服务会将它们拼接后做 MD5 哈希作为随机种子，相同的参数组合每次都会得到相同的签文。
 
@@ -177,7 +177,7 @@ skyblessings-fastapi-pillow/
 --------------------------
 ```
 
-## curl 示例
+## curl指令 示例
 
 ```bash
 # 获取随机祈福签图片，保存为 blessing.png
