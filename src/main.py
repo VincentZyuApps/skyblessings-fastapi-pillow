@@ -3,6 +3,7 @@ FastAPI 主应用
 """
 
 import toml
+import traceback
 from pathlib import Path
 from typing import Optional
 
@@ -28,7 +29,9 @@ def load_config() -> dict:
             "server": {
                 "host": "0.0.0.0",
                 "port": 51205,
-                "log_level": "info"
+                "log_level": "info",
+                "hide_error_details": False,
+                "max_seed_param_length": 500
             },
             "image": {
                 "width": 1240,
@@ -40,7 +43,7 @@ def load_config() -> dict:
         CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             toml.dump(default_config, f)
-        print(f"✓ 已生成默认配置文件: {CONFIG_FILE}")
+        print(f"\033[91m[WARN] 未检测到配置文件，已自动生成默认配置：{CONFIG_FILE.resolve()}\033[0m")
         return default_config
 
 
@@ -50,7 +53,7 @@ config = load_config()
 app = FastAPI(
     title="Sky光遇祈福签 API",
     description="随机生成光遇祈福签图片的 API 服务",
-    version="0.2.1"
+    version="0.2.3"
 )
 
 # 添加 CORS 支持
@@ -67,6 +70,8 @@ renderer = BlessingRenderer(config)
 
 # 获取调试模式
 debug_mode = config["server"].get("log_level", "info").lower() == "debug"
+hide_error_details = config["server"].get("hide_error_details", False)
+max_seed_param_length = config["server"].get("max_seed_param_length", 500)
 
 
 @app.get("/")
@@ -102,6 +107,8 @@ async def get_blessing(
     try:
         seed = None
         if any(v is not None for v in (a, b, c, d, e)):
+            if any(v and len(v) > max_seed_param_length for v in (a, b, c, d, e)):
+                return JSONResponse(status_code=400, content={"error": "参数过长"})
             raw = "|".join(v or "" for v in (a, b, c, d, e))
             seed = int(hashlib.md5(raw.encode()).hexdigest(), 16)
 
@@ -124,9 +131,9 @@ async def get_blessing(
             data["image_base64"] = base64.b64encode(image_bytes).decode("utf-8")
         return JSONResponse(data)
     except Exception as e:
-        import traceback
         traceback.print_exc()
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        error_msg = "内部服务器错误" if hide_error_details else str(e)
+        return JSONResponse(status_code=500, content={"error": error_msg})
 
 
 @app.get("/favicon.ico")

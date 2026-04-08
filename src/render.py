@@ -49,14 +49,17 @@ class BlessingRenderer:
         self.height = config['image']['height']
         self.font_size = config['image']['font_size']
         self.assets_dir = Path(config['image']['assets_dir'])
-        
+        self.cache_images = config['image'].get('cache_images', True)
+
         # 缓存字体（字典，键为字体大小）
         self.font_cache: dict[int, ImageFont.FreeTypeFont] = {}
+        # 缓存静态图片（键为路径字符串）
+        self._image_cache: dict[str, Image.Image] = {}
     
     def _load_font(self, size: Optional[int] = None) -> ImageFont.FreeTypeFont:
         """加载字体"""
         font_size = size if size is not None else self.font_size
-        
+
         if font_size not in self.font_cache:
             font_path = self.assets_dir / "font" / "LXGWWenKaiMono-Medium.ttf"
             try:
@@ -65,6 +68,16 @@ class BlessingRenderer:
                 print(f"警告：加载字体失败 {e}，使用默认字体")
                 self.font_cache[font_size] = ImageFont.load_default()
         return self.font_cache[font_size]
+
+    def _load_image(self, path: Path) -> Image.Image:
+        """加载图片，根据配置决定是否缓存"""
+        if not self.cache_images:
+            return Image.open(path).convert('RGBA')
+
+        key = str(path)
+        if key not in self._image_cache:
+            self._image_cache[key] = Image.open(path).convert('RGBA')
+        return self._image_cache[key].copy()
     
     def _get_children(self, parent_id: str) -> list[DrawItem]:
         """获取指定父节点的所有子项"""
@@ -123,7 +136,10 @@ class BlessingRenderer:
         # 2. 抽取签文类型
         text_items = self._get_children("0")
         if not text_items:
+            # Fallback: 如果 "0" 无子项（数据异常），尝试 "9"
             text_items = self._get_children("9")
+        if not text_items:
+            raise ValueError("数据异常：无法找到签文类型")
         text_items = [item for item in text_items if item.remark == "textimg"]
         text_item = self._draw_random_item(text_items, rng)
         result.text_image = TEXT_IMAGE_MAP.get(text_item.name, "")
@@ -181,12 +197,10 @@ class BlessingRenderer:
         return output.getvalue()
     
     def _draw_background_decoration(self, canvas: Image.Image, decoration_filename: str):
-        """
-        绘制装饰层，使用 background.png 的 alpha 通道作为遮罩，背景色为 color_hex，不透明
-        """
+        """绘制装饰层"""
         mask_path = self.assets_dir / "image" / decoration_filename
         try:
-            base_texture = Image.open(mask_path).convert('RGBA')
+            base_texture = self._load_image(mask_path)
             canvas.alpha_composite(base_texture)
         except Exception as e:
             print(f"警告：绘制装饰层失败 {e}")
@@ -201,8 +215,7 @@ class BlessingRenderer:
         """
         mask_path = self.assets_dir / "image" / "background.png"
         try:
-            # 加载遮罩图片，保持 RGBA
-            mask_img = Image.open(mask_path).convert('RGBA')
+            mask_img = self._load_image(mask_path)
             
             # 取出 alpha 通道作为遮罩
             alpha_mask = mask_img.split()[-1]  # alpha 通道
@@ -227,7 +240,7 @@ class BlessingRenderer:
         """绘制签文图片（大吉、中吉等）"""
         text_img_path = self.assets_dir / "image" / text_filename
         try:
-            text_img = Image.open(text_img_path).convert('RGBA')
+            text_img = self._load_image(text_img_path)
             
             x = int(self.width * 0.204)  # 从0.35改为0.25，进一步左移
             y = int(self.height * 0.49)
@@ -238,8 +251,8 @@ class BlessingRenderer:
     
     def _draw_texts(self, canvas: Image.Image, result: BlessingResult):
         """绘制文字内容"""
-        font_normal = self._load_font(size=40)  # 普通字体（36pt）
-        font_blod = self._load_font(size=45)  # 稍小字体（32pt，用于祝福语）
+        font_normal = self._load_font(size=40)
+        font_bold = self._load_font(size=45)  # 祝福语用大字体
         draw = ImageDraw.Draw(canvas)
         
         # 文字颜色：白色
@@ -270,7 +283,7 @@ class BlessingRenderer:
         for i, text in enumerate(texts):
             if text:
                 # 第三行（祝福语，索引2）使用大字体
-                current_font = font_blod if i == 2 else font_normal
+                current_font = font_bold if i == 2 else font_normal
                 
                 
                 # 绘制主文字（白色）

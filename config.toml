@@ -2,9 +2,12 @@
 host = "0.0.0.0"
 port = 51205
 log_level = "debug"  # "info" 或 "debug"
+hide_error_details = false  # 是否隐藏错误详情（true: 返回通用错误信息，false: 返回具体异常）
+max_seed_param_length = 500  # seed 参数（a/b/c/d/e）单个最大长度
 
 [image]
 width = 1240
 height = 620
 font_size = 36
 assets_dir = "../assets"  # 资源文件夹路径（相对于 src 目录）
+cache_images = true  # 是否将静态图片缓存到内存（增大内存开销，减少磁盘读写）
