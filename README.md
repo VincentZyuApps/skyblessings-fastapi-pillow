@@ -1,4 +1,4 @@
-> readme目前是ai写的( 如果有问题的话 记得联系我改(
+![skyblessings-fastapi-pillow](https://socialify.git.ci/VincentZyuApps/skyblessings-fastapi-pillow/image?custom_description=%F0%9F%8C%B8+Sky%E5%85%89%E9%81%87%E7%A5%88%E7%A6%8F%E7%AD%BE%E5%9B%BE%E7%89%87%E7%94%9F%E6%88%90API+%7C+FastAPI+%2B+Pillow+%7C+%E6%94%AF%E6%8C%81%E6%AF%8F%E6%97%A5%E4%B8%80%E7%AD%BE%E7%A7%8D%E5%AD%90+%7C+PNG%E7%9B%B4%E8%BF%94+%2F+JSON+%2F+Base64%E5%A4%9A%E7%A7%8D%E6%A0%BC%E5%BC%8F%2C++%E5%8E%9F%E5%A7%8B%E4%BB%93%E5%BA%93%3A+https%3A%2F%2Fgithub.com%2FXingWo%2Fskyblessings&description=1&font=KoHo&forks=1&issues=1&language=1&logo=https%3A%2F%2Fassets.streamlinehq.com%2Fimage%2Fprivate%2Fw_300%2Ch_300%2Car_1%2Ff_auto%2Fv1%2Ficons%2F3%2Ffastapi-icon-72blnc5ihz9c30ltfruvm.png%2Ffastapi-icon-sv7hsd0o3donlq26es2lr.png%3F_a%3DDATAiZAAZAA0&name=1&owner=1&pattern=Formal+Invitation&pulls=1&stargazers=1&theme=Auto)
 
 # 祈福签 API - Python 版本
 
@@ -6,30 +6,34 @@
 
 ## 技术栈
 
-- **Python**: 3.12+
-- **FastAPI**: Web 框架
-- **Pillow**: 图像处理
-- **Uvicorn**: ASGI 服务器
-- **TOML**: 配置文件解析
+| 包 | 版本 | 说明 |
+|:---|:---|:---|
+| [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org/) | 3.12+ | 编程语言 |
+| [![FastAPI](https://img.shields.io/badge/FastAPI-0.123.9-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/) | 0.123.9 | Web 框架 |
+| [![Pillow](https://img.shields.io/badge/Pillow-12.0.0-FFD43B?style=flat-square&logo=python&logoColor=white)](https://python-pillow.org/) | 12.0.0 | 图像处理 |
+| [![Uvicorn](https://img.shields.io/badge/Uvicorn-0.38.0-499848?style=flat-square&logo=gunicorn&logoColor=white)](https://www.uvicorn.org/) | 0.38.0 | ASGI 服务器 |
+| [![TOML](https://img.shields.io/badge/toml-0.10.2-9C4121?style=flat-square&logo=toml&logoColor=white)](https://github.com/uiri/toml) | 0.10.2 | 配置文件解析 |
 
 ## 快速开始
 
 ### 1. 安装依赖
 
 ```powershell
-# 创建虚拟环境
-python -m venv venv  # Windows
-python3 -m venv venv  # Linux/macOS
+# 推荐使用uv，开发的时候使用3.12 3.13
+# https://gitee.com/wangnov/uv-custom/releases
+python --version
 
-# 激活虚拟环境 并打印一下解释器路径 确保虚拟环境激活
+# 创建虚拟环境
+uv venv
+
+# (可选)激活虚拟环境 并打印一下解释器路径
 .\venv\Scripts\activate  # Windows
 Get-Command python # Windows PowerShell
 source venv/bin/activate  # Linux/macOS
 which python # Linux bash
 
 # 安装依赖
-# pip install fastapi uvicorn pillow python-multipart toml
-pip install -r ./requirements.txt
+uv pip install -r ./requirements.txt
 ```
 
 ### 2. 配置文件
@@ -53,16 +57,16 @@ assets_dir = "../assets"
 
 ```powershell
 cd src
-python main.py
+uv run python main.py
 ```
 
 或使用 uvicorn 直接运行：
 
 ```powershell
 cd src
-uvicorn main:app --host 0.0.0.0 --port 51205
+uv uvicorn main:app --host 0.0.0.0 --port 51205
 # --reload可选
-uvicorn main:app --host 0.0.0.0 --port 51205 --reload
+uv uvicorn main:app --host 0.0.0.0 --port 51205 --reload
 ```
 
 ### 4. 访问 API
@@ -111,9 +115,46 @@ skyblessings-fastapi-pillow/
 
 ### GET /blessing
 
-生成并返回随机祈福签图片
+生成并返回祈福签
 
-**响应类型**: `image/png`
+**查询参数**:
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `type` | string | `image` | 返回格式，见下方说明 |
+| `a` | string | - | 种子参数 a（可选） |
+| `b` | string | - | 种子参数 b（可选） |
+| `c` | string | - | 种子参数 c（可选） |
+| `d` | string | - | 种子参数 d（可选） |
+| `e` | string | - | 种子参数 e（可选） |
+
+**`?type=` 说明**:
+
+- `image`（默认）：直接返回 PNG 图片（`image/png`）
+- `json`：返回 JSON 数据，包含签文信息 + `image_base64` 字段（base64 编码的 PNG）
+- `json_without_image`：返回 JSON 数据，不含图片
+
+**`?a=` ~ `?e=` 种子参数说明**:
+
+这 5 个参数用于固定抽签结果。传入任意一个或多个参数后，服务会将它们拼接后做 MD5 哈希作为随机种子，相同的参数组合每次都会得到相同的签文。
+
+典型用法：传入用户 ID（如 QQ 号）+ 日期，实现"每日一签"效果——同一用户同一天抽到的签相同，不同用户或不同天则不同。
+
+不传任何种子参数时，每次请求随机生成。
+
+**`type=json` 响应示例**:
+```json
+{
+  "fortune_level": 2,
+  "background_id": 1,
+  "dordas": "飞鸟",
+  "blessing": "互相在意的人，不会走散。",
+  "entry": "不思进取",
+  "dordas_color": "蔚蓝",
+  "color_hex": "#28d1e9",
+  "image_base64": "iVBORw0KGgo..."
+}
+```
 
 **调试输出**（log_level=debug 时）:
 ```
@@ -125,6 +166,25 @@ skyblessings-fastapi-pillow/
 祝福语: 互相在意的人，不会走散。
 忌：不思进取
 --------------------------
+```
+
+## curl 示例
+
+```bash
+# 获取随机祈福签图片，保存为 blessing.png
+curl -o blessing.png "http://localhost:51205/blessing"
+
+# 获取 JSON 数据（含 base64 图片）
+curl "http://localhost:51205/blessing?type=json"
+
+# 获取 JSON 数据（不含图片）
+curl "http://localhost:51205/blessing?type=json_without_image"
+
+# 固定种子：传入用户ID + 日期，实现每日一签
+curl -o blessing.png "http://localhost:51205/blessing?a=123456789&b=2026-04-08"
+
+# 固定种子 + 返回 JSON
+curl "http://localhost:51205/blessing?type=json&a=123456789&b=2026-04-08"
 ```
 
 ## 配置说明

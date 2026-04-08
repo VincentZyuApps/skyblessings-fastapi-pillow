@@ -163,7 +163,7 @@ DRAW_ITEMS: List[DrawItem] = [
     DrawItem("555", "缘彩：松霜绿", 1, "55", "dordascolor"),
     DrawItem("555", "缘彩：螺钿紫", 1, "55", "dordascolor"),
     DrawItem("555", "缘彩：品蓝", 1, "55", "dordascolor"),
-    DrawItem("555", "缘彩��豇豆红", 1, "55", "dordascolor"),
+    DrawItem("555", "缘彩：豇豆红", 1, "55", "dordascolor"),
     DrawItem("5555", "不要困于无风之地。", 1, "555", "blessing"),
     DrawItem("5555", "互相在意的人，不会走散。", 1, "555", "blessing"),
     DrawItem("5555", "坚定你自己的选择。", 1, "555", "blessing"),

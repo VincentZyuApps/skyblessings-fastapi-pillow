@@ -6,7 +6,9 @@ import toml
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Response
+import hashlib
+import base64
+from fastapi import FastAPI, Response, Query
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -82,24 +84,42 @@ async def index():
 
 
 @app.get("/blessing")
-async def get_blessing():
-    """
-    获取随机祈福签图片
-    
-    Returns:
-        PNG 图片
-    """
+async def get_blessing(
+    type: str = Query(default="image", pattern="^(image|json|json_without_image)$"),
+    a: Optional[str] = None,
+    b: Optional[str] = None,
+    c: Optional[str] = None,
+    d: Optional[str] = None,
+    e: Optional[str] = None,
+):
     try:
-        image_bytes = renderer.generate_blessing_image(debug=debug_mode)
-        return Response(content=image_bytes, media_type="image/png")
+        seed = None
+        if any(v is not None for v in (a, b, c, d, e)):
+            raw = "|".join(v or "" for v in (a, b, c, d, e))
+            seed = int(hashlib.md5(raw.encode()).hexdigest(), 16)
+
+        result = renderer.perform_draw(seed=seed)
+        if type == "image":
+            image_bytes = renderer.generate_blessing_image_from_result(result, debug=debug_mode)
+            return Response(content=image_bytes, media_type="image/png")
+
+        data = {
+            "fortune_level": result.fortune_level,
+            "background_id": result.background_id,
+            "dordas": result.dordas,
+            "blessing": result.blessing,
+            "entry": result.entry,
+            "dordas_color": result.dordas_color,
+            "color_hex": result.color_hex,
+        }
+        if type == "json":
+            image_bytes = renderer.generate_blessing_image_from_result(result, debug=debug_mode)
+            data["image_base64"] = base64.b64encode(image_bytes).decode("utf-8")
+        return JSONResponse(data)
     except Exception as e:
-        print(f"错误：生成图片失败 {e}")
         import traceback
         traceback.print_exc()
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"生成图片失败: {str(e)}"}
-        )
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.get("/favicon.ico")
@@ -119,8 +139,9 @@ if __name__ == "__main__":
     port = config["server"]["port"]
     
     print(f"🚀 启动祈福签 API 服务...")
-    print(f"📍 地址: http://{host}:{port}")
+    print(f"📍 跟路由: http://{host}:{port}")
     print(f"📖 API 文档: http://{host}:{port}/docs")
+    print(f"🔖 抽签图片: http://{host}:{port}/blessing")
     print(f"🐛 调试模式: {'开启' if debug_mode else '关闭'}")
     print()
     

@@ -24,12 +24,14 @@ from draw_data import (
 class BlessingResult:
     """抽签结果"""
     background_image: str = ""  # 背景装饰图文件名
-    text_image: str = ""  # 签文图片文件名
-    dordas: str = ""  # 结缘物
-    dordas_color: str = ""  # 缘彩名称
-    color_hex: str = ""  # 颜色十六进制
-    blessing: str = ""  # 祝福语
-    entry: str = ""  # 词条
+    background_id: str = ""     # 背景编号，如 backgroundimg0
+    text_image: str = ""        # 签文图片文件名
+    fortune_level: str = ""     # 吉祥程度，如 大吉/中吉
+    dordas: str = ""            # 结缘物
+    dordas_color: str = ""      # 缘彩名称
+    color_hex: str = ""         # 颜色十六进制
+    blessing: str = ""          # 祝福语
+    entry: str = ""             # 词条
 
 
 class BlessingRenderer:
@@ -68,29 +70,30 @@ class BlessingRenderer:
         """获取指定父节点的所有子项"""
         return [item for item in DRAW_ITEMS if item.parent_id == parent_id]
     
-    def _draw_random_item(self, items: list[DrawItem]) -> DrawItem:
+    def _draw_random_item(self, items: list[DrawItem], rng: random.Random = None) -> DrawItem:
         """根据权重随机选择一个项"""
         if not items:
             raise ValueError("没有可选项")
-        
+        if rng is None:
+            rng = random
         total_weight = sum(item.weight for item in items)
-        rand_num = random.randint(1, total_weight)
-        
+        rand_num = rng.randint(1, total_weight)
+
         cumulative = 0
         for item in items:
             cumulative += item.weight
             if rand_num <= cumulative:
                 return item
-        
-        return items[-1]  # 兜底返回最后一项
-    
-    def _draw_sub_items(self, parent_id: str, result: BlessingResult):
+
+        return items[-1]
+
+    def _draw_sub_items(self, parent_id: str, result: BlessingResult, rng: random.Random = None):
         """递归抽取子项"""
         children = self._get_children(parent_id)
         if not children:
             return
-        
-        selected = self._draw_random_item(children)
+
+        selected = self._draw_random_item(children, rng)
         
         # 根据类型填充结果
         if selected.remark == "dordas":
@@ -104,28 +107,31 @@ class BlessingRenderer:
             result.entry = selected.name
         
         # 继续递归
-        self._draw_sub_items(selected.id, result)
+        self._draw_sub_items(selected.id, result, rng)
     
-    def perform_draw(self) -> BlessingResult:
+    def perform_draw(self, seed=None) -> BlessingResult:
         """执行抽签"""
+        rng = random.Random(seed)
         result = BlessingResult()
-        
+
         # 1. 抽取背景图
         bg_items = [item for item in DRAW_ITEMS if item.remark == "backgroundimg"]
-        bg_item = self._draw_random_item(bg_items)
+        bg_item = self._draw_random_item(bg_items, rng)
         result.background_image = BACKGROUND_IMAGE_MAP.get(bg_item.name, "")
-        
+        result.background_id = bg_item.name
+
         # 2. 抽取签文类型
         text_items = self._get_children("0")
         if not text_items:
-            text_items = self._get_children("9")  # 奇签
+            text_items = self._get_children("9")
         text_items = [item for item in text_items if item.remark == "textimg"]
-        text_item = self._draw_random_item(text_items)
+        text_item = self._draw_random_item(text_items, rng)
         result.text_image = TEXT_IMAGE_MAP.get(text_item.name, "")
-        
+        result.fortune_level = text_item.name
+
         # 3. 递归抽取下级项
-        self._draw_sub_items(text_item.id, result)
-        
+        self._draw_sub_items(text_item.id, result, rng)
+
         return result
     
     def _hex_to_rgba(self, hex_color: str, alpha: int = 204) -> Tuple[int, int, int, int]:
@@ -137,18 +143,10 @@ class BlessingRenderer:
         return (r, g, b, alpha)
     
     def generate_blessing_image(self, debug: bool = False) -> bytes:
-        """
-        生成祈福签图片
-        
-        Args:
-            debug: 是否打印调试信息
-            
-        Returns:
-            PNG 图片字节流
-        """
-        # 执行抽签
         result = self.perform_draw()
-        
+        return self.generate_blessing_image_from_result(result, debug=debug)
+
+    def generate_blessing_image_from_result(self, result: BlessingResult, debug: bool = False) -> bytes:
         if debug:
             print("--- 抽签结果 (Debug) ---")
             print(f"背景图: {result.background_image}")
@@ -158,15 +156,14 @@ class BlessingRenderer:
             print(f"祝福语: {result.blessing}")
             print(f"{result.entry}")
             print("-" * 26)
-        
+
         # 创建画布
         canvas = Image.new('RGBA', (self.width, self.height), (255, 255, 255, 0))
         
         # 1. 先绘制带颜色的背景层（使用 background.png 作为遮罩）
         self._draw_colored_background(canvas, result.color_hex)
         
-        # 2. 绘制背景装饰层（background5.png + 随机遮罩）
-        # 原版逻辑：background5.png 是固定底层纹理，background0-3.png 是随机遮罩
+        # 2. 绘制背景装饰层
         if result.background_image:
             self._draw_background_decoration(canvas, result.background_image)
         
@@ -177,7 +174,7 @@ class BlessingRenderer:
         # 4. 绘制文字内容
         self._draw_texts(canvas, result)
         
-        # 转换为 PNG 字节流
+        # 5. 转换为 PNG 字节流
         output = io.BytesIO()
         canvas.save(output, format='PNG')
         output.seek(0)
@@ -185,61 +182,46 @@ class BlessingRenderer:
     
     def _draw_background_decoration(self, canvas: Image.Image, decoration_filename: str):
         """
-        绘制背景装饰层
-        正确逻辑：
-        - background(num).png 是装饰图案（白色螺旋纹等）
-        - 只保留图案部分（非纯白的像素），半透明叠加到底色上
-        - 纯白背景部分应该透明，让底层颜色显示出来
+        绘制装饰层，使用 background.png 的 alpha 通道作为遮罩，背景色为 color_hex，不透明
         """
+        mask_path = self.assets_dir / "image" / decoration_filename
         try:
-            # 加载装饰图片（background0-3.png）
-            decoration_path = self.assets_dir / "image" / decoration_filename
-            decoration_img = Image.open(decoration_path).convert('RGBA')
-            
-            # 将装饰图案中的白色背景变透明，只保留图案
-            # 遍历每个像素，如果接近纯白(RGB > 250)，则设为透明
-            pixels = decoration_img.load()
-            width, height = decoration_img.size
-            for y in range(height):
-                for x in range(width):
-                    r, g, b, a = pixels[x, y]
-                    # 如果是接近纯白的像素（背景），设为完全透明
-                    if r > 250 and g > 250 and b > 250:
-                        pixels[x, y] = (r, g, b, 0)
-                    else:
-                        # 保留装饰图案的原始亮度和透明度
-                        # 让白色/浅色图案保持明亮，不要变暗
-                        pixels[x, y] = (r, g, b, a)
-            
-            # 叠加到画布上
-            canvas.paste(decoration_img, (0, 0), decoration_img)
-            
+            base_texture = Image.open(mask_path).convert('RGBA')
+            canvas.alpha_composite(base_texture)
         except Exception as e:
-            print(f"警告：绘制背景装饰失败 {e}")
+            print(f"警告：绘制装饰层失败 {e}")
+
+
+
+
     
     def _draw_colored_background(self, canvas: Image.Image, color_hex: str):
         """
-        绘制带颜色的背景层，使用 background.png 作为遮罩
-        
-        关键：这一层在装饰图之后绘制，会叠加在装饰图上
+        绘制背景层，使用 background.png 的 alpha 通道作为遮罩，背景色为 color_hex，不透明
         """
         mask_path = self.assets_dir / "image" / "background.png"
         try:
-            # 加载遮罩图片
+            # 加载遮罩图片，保持 RGBA
             mask_img = Image.open(mask_path).convert('RGBA')
             
-            # 创建纯色图层
-            # rgba = self._hex_to_rgba(color_hex, alpha=204)  # 0.8 * 255 = 204
-            # 创建纯色图层（完全不透明）
-            rgba = self._hex_to_rgba(color_hex, alpha=255)  # 完全不透明
-            color_layer = Image.new('RGBA', (self.width, self.height), rgba)
+            # 取出 alpha 通道作为遮罩
+            alpha_mask = mask_img.split()[-1]  # alpha 通道
             
-            # 使用遮罩的 alpha 通道作为透明度控制
-            # 将纯色图层通过遮罩粘贴到画布上
-            canvas.paste(color_layer, (0, 0), mask_img)
+            # 创建纯色背景层，大小与画布一致，颜色为 color_hex，不透明
+            color_layer = Image.new('RGBA', (self.width, self.height), self._hex_to_rgba(color_hex, alpha=200))
+            
+            # 创建空白透明画布
+            temp_canvas = Image.new('RGBA', (self.width, self.height), (0, 0, 0, 0))
+            
+            # 用 alpha 通道作为遮罩，将纯色背景粘贴到空白画布上
+            temp_canvas.paste(color_layer, (0, 0), mask=alpha_mask)
+            
+            # 将结果合成到底层画布
+            canvas.alpha_composite(temp_canvas)
             
         except Exception as e:
-            print(f"警告：绘制颜色背景失败 {e}")
+            print(f"警告：绘制背景层失败 {e}")
+
     
     def _draw_text_image(self, canvas: Image.Image, text_filename: str):
         """绘制签文图片（大吉、中吉等）"""
@@ -247,10 +229,8 @@ class BlessingRenderer:
         try:
             text_img = Image.open(text_img_path).convert('RGBA')
             
-            # 签文图位置：左侧中间（根据原版 CSS 布局）
-            # 原 CSS: margin-right: 80px, width: 296px
-            x = int(self.width * 0.25 - text_img.width / 2)  # 从0.35改为0.25，进一步左移
-            y = int(self.height / 2 - text_img.height / 2)
+            x = int(self.width * 0.204)  # 从0.35改为0.25，进一步左移
+            y = int(self.height * 0.49)
             
             canvas.paste(text_img, (x, y), text_img)
         except Exception as e:
@@ -258,14 +238,12 @@ class BlessingRenderer:
     
     def _draw_texts(self, canvas: Image.Image, result: BlessingResult):
         """绘制文字内容"""
-        font_normal = self._load_font()  # 普通字体（36pt）
-        font_small = self._load_font(size=32)  # 稍小字体（32pt，用于祝福语）
+        font_normal = self._load_font(size=40)  # 普通字体（36pt）
+        font_blod = self._load_font(size=45)  # 稍小字体（32pt，用于祝福语）
         draw = ImageDraw.Draw(canvas)
         
         # 文字颜色：白色
         text_color = (255, 255, 255, 255)
-        # 描边颜色：更淡的半透明黑色（降低不透明度）
-        outline_color = (0, 0, 0, 80)  # 从120降到80，让描边更细更淡
         
         # 准备文字内容（按顺序）
         texts = [
@@ -276,32 +254,24 @@ class BlessingRenderer:
         ]
         
         # 右侧文字区域位置
-        # 原 CSS: width: 46%, margin-right: 32px
-        # 文字区域从右侧开始往左 46% 的位置，再留 32px 边距
-        text_width_ratio = 0.46
-        margin_right = 32
-        # 计算文字起始 X 坐标：从画布右边界往左偏移 (46% + 32px)
+        text_width_ratio = 0.35
+        margin_right = 40
         text_area_x = int(self.width * (1 - text_width_ratio)) - margin_right - 133  # 左移 133px，避免与签文图重叠
         
         # 垂直居中，逐行绘制
         # 行间距：一二行靠近（+5），二三行分开（+25），三四行分开（+25）
-        line_spacings = [5, 25, 25]  # 每行之后的间距
+        line_spacings = [20, 60, 85]  # 每行之后的间距
         
         # 计算总高度
-        total_height = self.font_size * 3 + 32 + sum(line_spacings)  # 3行普通 + 1行小字 + 间距
-        start_y = int((self.height - total_height) / 2) + 20  # 微调偏移
+        total_height = self.font_size * 3 + 32 + sum(line_spacings)  # 3行普通 + 1行大字 + 间距
+        start_y = int((self.height - total_height) / 2) + 29  # 微调偏移
         
         current_y = start_y
         for i, text in enumerate(texts):
             if text:
-                # 第三行（祝福语，索引2）使用小字体
-                current_font = font_small if i == 2 else font_normal
+                # 第三行（祝福语，索引2）使用大字体
+                current_font = font_blod if i == 2 else font_normal
                 
-                # 绘制描边效果（在四个方向偏移1-2像素绘制黑色文字）
-                for dx in [-1, 0, 1]:
-                    for dy in [-1, 0, 1]:
-                        if dx != 0 or dy != 0:
-                            draw.text((text_area_x + dx, current_y + dy), text, font=current_font, fill=outline_color)
                 
                 # 绘制主文字（白色）
                 draw.text((text_area_x, current_y), text, font=current_font, fill=text_color)
