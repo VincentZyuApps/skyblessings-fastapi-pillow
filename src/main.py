@@ -48,9 +48,9 @@ config = load_config()
 
 # 创建 FastAPI 应用
 app = FastAPI(
-    title="祈福签 API",
-    description="随机生成祈福签图片的 API 服务",
-    version="1.0.0"
+    title="Sky光遇祈福签 API",
+    description="随机生成光遇祈福签图片的 API 服务",
+    version="0.2.1"
 )
 
 # 添加 CORS 支持
@@ -73,11 +73,18 @@ debug_mode = config["server"].get("log_level", "info").lower() == "debug"
 async def index():
     """根路径：返回 API 信息"""
     return JSONResponse({
-        "name": "祈福签 API",
-        "version": "1.0.0",
+        "title": app.title,
+        "description": app.description,
+        "version": app.version,
         "endpoints": {
             "/": "API 信息",
-            "/blessing": "获取随机祈福签图片（PNG）",
+            "/blessing": {
+                "description": "获取随机祈福签图片",
+                "params": {
+                    "type": "响应格式：image（默认，PNG图片）| json（含图片base64）| json_without_image",
+                    "a/b/c/d/e": "可选种子参数，相同组合返回相同结果（如 ?a=玩家名&b=日期）",
+                }
+            },
             "/favicon.ico": "网站图标"
         }
     })
